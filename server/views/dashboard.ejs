@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="../client/css/style.css">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="dashboard-container">
+        <h1>Dashboard</h1>
+        <div id="welcome-message"></div>
+        <div id="location"></div>
+        <div id="map" style="height: 400px;"></div>
+        <button id="live-track-button">Start Live Track</button>
+    </div>
+    <script src="../client/js/dashboard.js"></script>
+    <script src="../client/js/app.js"></script>
+    <script src="../client/js/auth.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDGngc3uJRI8bBYl9BGi1FzRupz8C-kW6M"></script>
+</body>
+</html>
