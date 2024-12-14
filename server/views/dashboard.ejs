@@ -3,21 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="../client/css/style.css">
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <title>Location Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/dashboard.css">
 </head>
 <body>
-    <div id="dashboard-container">
-        <h1>Dashboard</h1>
-        <div id="welcome-message"></div>
-        <div id="location"></div>
-        <div id="map" style="height: 400px;"></div>
-        <button id="live-track-button">Start Live Track</button>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <h1>Welcome <%= user.email.split('@')[0] %></h1>
+        </div>
+        <div class="navbar-right">
+            <div class="user-email">
+                <span id="user-email"><%= user.email %></span>
+            </div>
+            <button class="logout-btn">Logout</button>
+        </div>
+    </nav>
+
+    <div id="status-indicator" class="status-indicator"></div>
+
+    <div class="dashboard-container">
+        <div class="left-panel">
+            <div class="info-panel current-location">
+                <div class="location-header">
+                    <h2 class="location-title">Current Location</h2>
+                </div>
+                <div class="coordinates">
+                    <p>Latitude: <span id="current-latitude"><%= user.latitude %></span></p>
+                    <p>Longitude: <span id="current-longitude"><%= user.longitude %></span></p>
+                    <p>Last Updated: <span id="last-updated">
+                        <%= user.lastUpdated ? new Date(user.lastUpdated).toLocaleString() : 'Not available' %>
+                    </span></p>
+                </div>
+                <button id="live-tracking">Start Live Tracking</button>
+            </div>
+
+            <div class="history-panel">
+                <h2 class="history-title">Location History</h2>
+                <div class="history-list" id="location-history">
+                    <% user.locationHistory.slice().reverse().forEach(function(location) { %>
+                        <div class="history-item">
+                            <div class="coordinates">
+                                Lat: <%= location.latitude.toFixed(6) %>, 
+                                Lng: <%= location.longitude.toFixed(6) %>
+                            </div>
+                            <div class="timestamp">
+                                <%= new Date(location.timestamp).toLocaleString() %>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div id="map"></div>
+        </div>
     </div>
-    <script src="../client/js/dashboard.js"></script>
-    <script src="../client/js/app.js"></script>
-    <script src="../client/js/auth.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDGngc3uJRI8bBYl9BGi1FzRupz8C-kW6M"></script>
+
+    <script>
+        // Pass user data to JavaScript
+        const user = {
+            email: '<%= user.email %>',
+            latitude: <%= user.latitude %>,
+            longitude: <%= user.longitude %>
+        };
+    </script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/dashboard.js"></script>
 </body>
 </html>

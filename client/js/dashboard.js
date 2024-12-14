@@ -1,95 +1,120 @@
+// Initialize map and socket.io
 const socket = io();
-const welcomeMessage = document.getElementById('welcome-message');
-const locationDiv = document.getElementById('location');
-const mapDiv = document.getElementById('map');
-const liveTrackButton = document.getElementById('live-track-button');
 let map;
-let marker;
-let liveTracking = false;
+let currentMarker;
+let isTracking = false;
+let watchId = null;
 
-const userEmail = localStorage.getItem('userEmail');
-welcomeMessage.textContent = `Welcome ${userEmail}`;
-
-const initMap = (lat, lng) => {
-    map = new google.maps.Map(mapDiv, {
-        center: { lat, lng },
-        zoom: 15,
-    });
-    marker = new google.maps.Marker({
-        position: { lat, lng },
-        map: map,
-    });
-};
-
-const updateMap = (lat, lng) => {
-    map.setCenter({ lat, lng });
-    marker.setPosition({ lat, lng });
-};
-
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        locationDiv.textContent = `Latitude: ${latitude}, Longitude: ${longitude}`;
-        initMap(latitude, longitude);
-    }, () => {
-        locationDiv.textContent = 'Unable to get location';
-    });
-} else {
-    locationDiv.textContent = 'Geolocation is not supported by this browser.';
+// Initialize map
+function initMap() {
+    map = L.map('map').setView([user.latitude, user.longitude], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: ' OpenStreetMap contributors'
+    }).addTo(map);
+    currentMarker = L.marker([user.latitude, user.longitude]).addTo(map);
 }
 
-liveTrackButton.addEventListener('click', () => {
-    if (!liveTracking) {
-        startLiveTracking();
-        liveTrackButton.textContent = 'Stop Live Track';
-        liveTracking = true;
-    } else {
-        stopLiveTracking();
-        liveTrackButton.textContent = 'Start Live Track';
-        liveTracking = false;
+function updateLocationDisplay(data) {
+    // Update location display
+    document.getElementById('current-latitude').textContent = data.latitude.toFixed(6);
+    document.getElementById('current-longitude').textContent = data.longitude.toFixed(6);
+    document.getElementById('last-updated').textContent = 
+        new Date(data.lastUpdated).toLocaleString();
+
+    // Update marker position
+    currentMarker.setLatLng([data.latitude, data.longitude]);
+    map.setView([data.latitude, data.longitude]);
+
+    // Update history display with reversed order
+    const historyHtml = [...data.locationHistory]
+        .reverse()
+        .map(loc => `
+            <div class="history-item">
+                <div class="coordinates">
+                    Lat: ${loc.latitude.toFixed(6)}, 
+                    Lng: ${loc.longitude.toFixed(6)}
+                </div>
+                <div class="timestamp">
+                    ${new Date(loc.timestamp).toLocaleString()}
+                </div>
+            </div>
+        `).join('');
+    document.getElementById('location-history').innerHTML = historyHtml;
+}
+
+function startTracking() {
+    isTracking = true;
+    const liveTrackingBtn = document.getElementById('live-tracking');
+    liveTrackingBtn.textContent = 'Stop Live Tracking';
+    liveTrackingBtn.classList.add('tracking-active');
+    socket.emit('startTracking', user.email);
+
+    if ("geolocation" in navigator) {
+        const options = {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 500
+        };
+
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                socket.emit('updateLocation', {
+                    email: user.email,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                });
+            },
+            (error) => console.error('Error getting location:', error),
+            options
+        );
     }
-});
+}
 
+function stopTracking() {
+    isTracking = false;
+    const liveTrackingBtn = document.getElementById('live-tracking');
+    liveTrackingBtn.textContent = 'Start Live Tracking';
+    liveTrackingBtn.classList.remove('tracking-active');
+    
+    // Clear the watch
+    if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+    
+    socket.emit('stopTracking');
+}
 
+// Initialize when document is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize map
+    initMap();
 
+    // Setup tracking button
+    const liveTrackingBtn = document.getElementById('live-tracking');
+    if (liveTrackingBtn) {
+        liveTrackingBtn.addEventListener('click', () => {
+            if (!isTracking) {
+                startTracking();
+            } else {
+                stopTracking();
+            }
+        });
+    }
 
+    // Socket event handlers
+    socket.on('locationUpdated', (data) => {
+        updateLocationDisplay(data);
+    });
 
-function startLiveTracking() {
-    intervalId = setInterval(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
-                const email = localStorage.getItem('userEmail');
-                try {
-                    const response = await fetch('/api/users/update-location', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ email, latitude, longitude }),
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('Location updated', data);
-                        locationDiv.textContent = `Latitude: ${data.data.latitude}, Longitude: ${data.data.longitude}`;
-                        updateMap(data.data.latitude, data.data.longitude);
-                    } else {
-                        console.error('Location update failed');
-                    }
-                } catch (error) {
-                    console.error('Error updating location:', error);
-                }
-            }, () => {
-                console.error('Geolocation is not supported by this browser.');
-            });
-        } else {
-            console.error('Geolocation is not supported by this browser.');
+    socket.on('error', (message) => {
+        console.error('Socket error:', message);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
         }
-    }, 10000);
-}
-
-function stopLiveTracking() {
-    clearInterval(intervalId);
-}
+    });
+});

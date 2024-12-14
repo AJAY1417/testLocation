@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
     "express": "^4.21.2",
     "mongoose": "^8.8.4",
     "socket.io": "^4.8.1"

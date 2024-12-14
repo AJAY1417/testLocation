@@ -1,63 +1,91 @@
 const User = require('../models/user');
 const { success, error } = require('../utils/apiResponse');
 
-const loginUser = async (req, res) => {
+const loginUser = async (req, res, next) => {
   try {
-    const { email, password, latitude, longitude } = req.body;
+    const { email, latitude, longitude } = req.body;
+    console.log('Received login data:', { email, latitude, longitude });
 
-    // Placeholder for password check - in real app, hash and compare passwords
-    if (!email || !password) {
-      return error(res, 'Email and password are required', 400);
+    if (!email) {
+      throw new Error('Email is required');
     }
 
-    const user = new User({
-      email,
-      latitude,
-      longitude,
-    });
+    if (!latitude || !longitude) {
+      throw new Error('Location data is required');
+    }
 
+    // Try to find existing user
+    let user = await User.findOne({ email });
+    console.log('Existing user:', user);
+
+    if (!user) {
+      // Create new user if doesn't exist
+      user = new User({
+        email,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        locationHistory: [{
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude)
+        }]
+      });
+      console.log('Creating new user:', user);
+    } else {
+      // Update location for existing user
+      user.latitude = parseFloat(latitude);
+      user.longitude = parseFloat(longitude);
+      user.locationHistory.push({
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude)
+      });
+      console.log('Updating user location:', user);
+    }
+    
     await user.save();
+    console.log('Saved user:', user);
 
-    success(res, 'User logged in successfully', {
-      email: user.email,
-      latitude: user.latitude,
-      longitude: user.longitude,
+    // Send back the redirect URL with the response
+    return success(res, 'Login successful', {
+      redirectUrl: `/dashboard?email=${encodeURIComponent(email)}`,
+      user: {
+        email: user.email,
+        latitude: user.latitude,
+        longitude: user.longitude
+      }
     });
   } catch (err) {
-    console.error(err);
-    error(res, 'Error logging in user', 500);
+    next(err);
   }
 };
 
-const updateLocation = async (req, res) => {
+const updateLocation = async (req, res, next) => {
   try {
     const { email, latitude, longitude } = req.body;
 
     const user = await User.findOne({ email });
-
     if (!user) {
-      return error(res, 'User not found', 404);
+      throw new Error('User not found');
     }
 
-    user.locationHistory.push({ latitude, longitude });
+    user.latitude = parseFloat(latitude);
+    user.longitude = parseFloat(longitude);
+    user.locationHistory.push({
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude)
+    });
 
     if (user.locationHistory.length > 10) {
       user.locationHistory.shift();
     }
 
-    user.latitude = latitude;
-    user.longitude = longitude;
-
     await user.save();
-
-    success(res, 'Location updated successfully', {
+    return success(res, 'Location updated successfully', {
       latitude: user.latitude,
       longitude: user.longitude,
       locationHistory: user.locationHistory,
     });
   } catch (err) {
-    console.error(err);
-    error(res, 'Error updating location', 500);
+    next(err);
   }
 };
 

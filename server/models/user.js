@@ -12,18 +12,18 @@ const userSchema = new mongoose.Schema({
   longitude: {
     type: Number,
   },
-  locationHistory: {
-    type: [
-      {
-        latitude: Number,
-        longitude: Number,
-        timestamp: { type: Date, default: Date.now },
-      },
-    ],
-    default: [],
+  lastUpdated: {
+    type: Date,
+    default: Date.now
   },
+  locationHistory: [{
+    latitude: Number,
+    longitude: Number,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 });
 
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model('User', userSchema);
